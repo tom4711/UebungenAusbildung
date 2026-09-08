@@ -26,9 +26,7 @@ class Program
 
     private static void AnzeigeKategorisierteMesswerte(int unterNull, int zwischenNullUndZehn, int ueberZehn)
     {
-        Console.WriteLine($"Messwerte unter 0: {unterNull}");
-        Console.WriteLine($"Messwerte zwischen 0 und 10: {zwischenNullUndZehn}");
-        Console.WriteLine($"Messwerte über 10: {ueberZehn}");
+        PrintSection("Kategorisierte Messwerte", new[] { $"Messwerte unter 0: {unterNull}", $"Messwerte zwischen 0 und 10: {zwischenNullUndZehn}", $"Messwerte über 10: {ueberZehn}" });
     }
     
     private static (int, int, int) KategorisiereMesswerte(double[] messwerte)
@@ -48,8 +46,8 @@ class Program
     
     private static void NeueMessreiheEingeben()
     {
-        Console.WriteLine("Möchten Sie eine neue Messreihe eingeben? (ja/nein)");
-        string antwort = Console.ReadLine().ToLower();
+        PrintSection("Neue Messreihe", new[] { "Möchten Sie eine neue Messreihe eingeben? (ja/nein)" });
+        string antwort = ReadStyledInput("(ja/nein)").ToLower();
         if (antwort == "ja")
         {
             Main();
@@ -58,20 +56,140 @@ class Program
 
     private static void Hauptmenü()
     {
-        Console.WriteLine("Temperatur Messwerte Programm");
-        Console.WriteLine("Die folgenden Schritte helfen Ihnen, Temperaturmesswerte einzugeben und auszuwerten.");
-        Console.WriteLine("Bitte folgen Sie den Anweisungen.");
-        Console.WriteLine("Es wird der Durchschnitt, das Minimum und Maximum der Messwerte berechnet.");
-        Console.WriteLine("Anschließend können Sie entscheiden, ob Sie eine neue Messreihe eingeben möchten.");
+        // Ordentliche, hübsche Formatierung der Konsolenausgabe
+        Console.Clear(); // Bildschirm vor der Anzeige des Hauptmenüs löschen
+
+        string title = "Temperatur Messwerte Programm";
+        string[] lines = new[]
+        {
+            "Die folgenden Schritte helfen Ihnen, Temperaturmesswerte einzugeben und auszuwerten.",
+            "Bitte folgen Sie den Anweisungen.",
+            "Es wird der Durchschnitt, das Minimum und Maximum der Messwerte berechnet.",
+            "Anschließend können Sie entscheiden, ob Sie eine neue Messreihe eingeben möchten."
+        };
+
+        // Bestimme Breite der Box
+        int maxLine = title.Length;
+        foreach (var l in lines) if (l.Length > maxLine) maxLine = l.Length;
+        int innerWidth = maxLine + 4; // Ränder
+
+        // Zeichne Box mit Rahmen und zentriertem Titel
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("╔" + new string('═', innerWidth) + "╗");
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("║" + CenterText(title, innerWidth) + "║");
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("╠" + new string('═', innerWidth) + "╣");
+
+        Console.ForegroundColor = ConsoleColor.White;
+        foreach (var l in lines)
+        {
+            Console.WriteLine("║" + PadText(l, innerWidth) + "║");
+        }
+
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("╚" + new string('═', innerWidth) + "╝");
+        Console.ResetColor();
+        Console.WriteLine();
+
+        // Lokale Hilfsfunktionen
+        string CenterText(string s, int width)
+        {
+            int left = (width - s.Length) / 2;
+            if (left < 0) left = 0;
+            return new string(' ', left) + s + new string(' ', width - left - s.Length);
+        }
+
+        string PadText(string s, int width)
+        {
+            // kleines Padding links
+            string padded = "  " + s;
+            if (padded.Length > width) padded = padded.Substring(0, width);
+            return padded + new string(' ', width - padded.Length);
+        }
+    }
+
+    // Kleine Hilfsfunktion: Zeichnet eine hübsche Box wie im Hauptmenü
+    private static void PrintBox(string title, string[] lines)
+    {
+        // Bestimme Breite der Box
+        int maxLine = title.Length;
+        foreach (var l in lines) if (l.Length > maxLine) maxLine = l.Length;
+        int innerWidth = maxLine + 4; // Ränder
+
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("╔" + new string('═', innerWidth) + "╗");
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("║" + CenterText(title, innerWidth) + "║");
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("╠" + new string('═', innerWidth) + "╣");
+
+        Console.ForegroundColor = ConsoleColor.White;
+        foreach (var l in lines)
+        {
+            Console.WriteLine("║" + PadText(l, innerWidth) + "║");
+        }
+
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("╚" + new string('═', innerWidth) + "╝");
+        Console.ResetColor();
+        Console.WriteLine();
+
+        // Lokale Hilfsfunktionen
+        string CenterText(string s, int width)
+        {
+            int left = (width - s.Length) / 2;
+            if (left < 0) left = 0;
+            return new string(' ', left) + s + new string(' ', width - left - s.Length);
+        }
+
+        string PadText(string s, int width)
+        {
+            string padded = "  " + s;
+            if (padded.Length > width) padded = padded.Substring(0, width);
+            return padded + new string(' ', width - padded.Length);
+        }
+    }
+
+    // Einheitliche einfache Abschnitts-Formatierung (kein kompletter Kasten)
+    private static void PrintSection(string title, string[] lines)
+    {
+        // Header
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(new string('─', 60));
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine("  " + title);
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine(new string('─', 60));
+
+        // Inhalt
+        Console.ForegroundColor = ConsoleColor.White;
+        foreach (var l in lines)
+        {
+            Console.WriteLine("  " + l);
+        }
+        Console.ResetColor();
+        Console.WriteLine();
+    }
+
+    // Konsistente Prompt-Ausgabe (gleiche Farbe/Prefix für Eingaben)
+    private static string ReadStyledInput(string prompt)
+    {
+        Console.ForegroundColor = ConsoleColor.White;
+        Console.Write("  → " + prompt + " ");
+        Console.ResetColor();
+        var input = Console.ReadLine();
+        return input ?? string.Empty;
     }
 
      private static int AbfrageAnzahlMesswerte()
     {
-        Console.WriteLine("Wie viele Messwerte möchten Sie eingeben?");
-        bool success = int.TryParse(Console.ReadLine(), out int anzahl);
+        // Hübsche Ausgabe wie im Hauptmenü
+        PrintBox("Anzahl Messwerte", new[] { "Wie viele Messwerte möchten Sie eingeben?", "Bitte eine ganze Zahl eingeben." });
+        bool success = int.TryParse(ReadStyledInput(""), out int anzahl);
         if (!success)
         {
-            Console.WriteLine("Ungültige Eingabe. Bitte geben Sie eine Zahl ein.");
+            PrintSection("Fehler", new[] { "Ungültige Eingabe. Bitte geben Sie eine Zahl ein." });
             return AbfrageAnzahlMesswerte();
         }
         return anzahl;
@@ -82,11 +200,11 @@ class Program
         double[] messwerte = new double[anzahl];
         for (int i = 0; i < anzahl; i++)
         {
-            Console.WriteLine($"Geben Sie den {i + 1}. Messwert ein:");
-            bool success = double.TryParse(Console.ReadLine(), out double wert);
+            string input = ReadStyledInput($"Geben Sie den {i + 1}. Messwert ein:");
+            bool success = double.TryParse(input, out double wert);
             if (!success)
             {
-                Console.WriteLine("Ungültige Eingabe. Bitte geben Sie eine Zahl ein.");
+                PrintSection("Fehler", new[] { "Ungültige Eingabe. Bitte geben Sie eine Zahl ein." });
                 i--; // Wiederhole die Eingabe für diesen Index
                 continue;
             }
@@ -97,11 +215,12 @@ class Program
 
     private static void AnzeigeMesswerte(double[] messwerte)
     {
-        Console.WriteLine("Eingegebene Messwerte:");
+        var lines = new string[messwerte.Length];
         for (int i = 0; i < messwerte.Length; i++)
         {
-            Console.WriteLine($"Messwert {i + 1}: {messwerte[i]}");
+            lines[i] = $"Messwert {i + 1}: {messwerte[i]}";
         }
+        PrintSection("Eingegebene Messwerte", lines);
     }
     
     private static double BerechneSumme(double[] messwerte)
@@ -121,7 +240,7 @@ class Program
 
     private static void AnzeigeDurchschnitt(double durchschnitt)
     {
-        Console.WriteLine($"Durchschnittlicher Messwert: {durchschnitt}");
+        PrintSection("Durchschnitt", new[] { $"Durchschnittlicher Messwert: {durchschnitt}" });
     }
     
     private static (double, double) BerechneMinimumUndMaximum(double[] messwerte)
@@ -138,7 +257,6 @@ class Program
     
     private static void AnzeigeMinimumUndMaximum(double min, double max)
     {
-        Console.WriteLine($"Minimaler Messwert: {min}");
-        Console.WriteLine($"Maximaler Messwert: {max}");
+        PrintSection("Minimum und Maximum", new[] { $"Minimaler Messwert: {min}", $"Maximaler Messwert: {max}" });
     }
 }
