@@ -14,69 +14,70 @@
             lkw,
             flugzeug
         };
-    }
-}
 
-internal abstract class Fahrzeug
-{
-    public int Baujahr { get; set; }
-    public string Farbe { get; set; }
-    public int Geschwindigkeit { get; set; }
-    public int MaxGeschwindigkeit { get; set; }
-    public double Tankinhalt { get; set; }
-    public double Kraftstoffverbrauch { get; set; }
+        List<GeometrischeForm> geometrischeFormen =
+        [
+            new Kreis(5),
+            new Rechteck(4, 6),
+            new Dreieck(3, 4, 5),
+            new Quadrat(5),
+            new Trapez(3, 5, 4),
+            new Ellipse(3, 5),
+        ];
 
-    public void Beschleunigen()
-    {
-        Console.WriteLine("Das Fahrzeug beschleunigt.");
-    }
-    public void Bremsen()
-    {
-        Console.WriteLine("Das Fahrzeug bremst.");
-    }
+        foreach (var form in geometrischeFormen)
+        {
+            form.BerechneFläche();
+            form.BerechneUmfang();
+       
+            switch (form)
+            {
+                case Kreis kreis:
+                    Console.WriteLine("Kreis:");
+                    Console.WriteLine($"Fläche: {kreis.Fläche}");
+                    Console.WriteLine($"Umfang: {kreis.Umfang}");
+                    Console.WriteLine($"Radius: {kreis.Radius}");
+                    Console.WriteLine();
+                    break;
+                case Quadrat quadrat:
+                Console.WriteLine("Quadrat:");
+                    Console.WriteLine($"Fläche: {quadrat.Fläche}");
+                    Console.WriteLine($"Umfang: {quadrat.Umfang}");
+                    Console.WriteLine($"Seitenlänge: {quadrat.Seite}");
+                    Console.WriteLine();
+                    break;
+                case Rechteck rechteck:
+                Console.WriteLine("Rechteck:");
+                    Console.WriteLine($"Fläche: {rechteck.Fläche}");
+                    Console.WriteLine($"Umfang: {rechteck.Umfang}");
+                    Console.WriteLine($"Breite: {rechteck.Breite}, Höhe: {rechteck.Länge}");
+                    Console.WriteLine();
+                    break;
+                case Dreieck dreieck:
+                Console.WriteLine("Dreieck:");
+                    Console.WriteLine($"Fläche: {dreieck.Fläche}");
+                    Console.WriteLine($"Umfang: {dreieck.Umfang}");
+                    Console.WriteLine($"SeiteA: {dreieck.SeiteA}, SeiteB: {dreieck.SeiteB}, SeiteC: {dreieck.SeiteC}");
+                    Console.WriteLine();
+                    break;             
+                case Trapez trapez:
+                Console.WriteLine("Trapez:");
+                    Console.WriteLine($"Fläche: {trapez.Fläche}");
+                    Console.WriteLine($"Umfang: {trapez.Umfang}");
+                    Console.WriteLine($"ObereBasis: {trapez.ObereBasis}, UntereBasis: {trapez.UntereBasis}, Höhe: {trapez.Höhe}");
+                    Console.WriteLine();
+                    break;
+                case Ellipse ellipse:
+                Console.WriteLine("Ellipse:");
+                    Console.WriteLine($"Fläche: {ellipse.Fläche}");
+                    Console.WriteLine($"Umfang: {ellipse.Umfang}");
+                    Console.WriteLine($"HalbachseA: {ellipse.HalbachseA}, HalbachseB: {ellipse.HalbachseB}");
+                    Console.WriteLine();
+                    break;
+            }
+        }
 
-}
+        
 
-internal class Auto : Fahrzeug
-{
-    public int AnzahlTueren { get; set; }
-    public string Marke { get; set; }
-    public string Modell { get; set; }
-    public double Kofferraumvolumen { get; set; }
-    public bool Schiebedach { get; set; }
-    public void Hupe()
-    {
-        Console.WriteLine("Das Auto hupt.");
-    }
-}
-internal class Motorrad : Fahrzeug
-{
-    public string Marke { get; set; }
-    public string Modell { get; set; }
-    public void Wheelie()
-    {
-        Console.WriteLine("Das Motorrad macht einen Wheelie.");
-    }
-}
-internal class LKW : Fahrzeug
-{
-    public string Marke { get; set; }
-    public string Modell { get; set; }
-    public double Ladevolumen { get; set; }
-    public void LadegutAufnehmen()
-    {
-        Console.WriteLine("Der LKW nimmt Ladegut auf.");
-    }
-}
-internal class Flugzeug : Fahrzeug
-{
-    public string Marke { get; set; }
-    public string Modell { get; set; }
-    public double Spannweite { get; set; }
-    public double Reichweite { get; set; }
-    public double Flughöhe { get; set; }
-    public void Starten()
-    {
-        Console.WriteLine("Das Flugzeug startet.");
     }
 }
