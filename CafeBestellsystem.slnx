@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="CafeBestellsystem.Core/CafeBestellsystem.Core.csproj" />
+  <Project Path="CafeBestellsystem/CafeBestellsystem.csproj" />
+  <Project Path="CafeBestellsystem.Tests/CafeBestellsystem.Tests.csproj" />
+</Solution>
