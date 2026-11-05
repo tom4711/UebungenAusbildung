@@ -46,4 +46,57 @@ public class Bestellverwaltung
                 && bestellung.Abschlussdatum == datum)
             .Sum(bestellung => bestellung.GesamtpreisBerechnen());
     }
+
+    public IReadOnlyDictionary<string, decimal> ProduktumsatzBerechnen(DateOnly datum)
+    {
+        var produktumsatz = new SortedDictionary<string, decimal>(StringComparer.Ordinal);
+        var abgeschlosseneBestellungen = _bestellungen
+            .Where(bestellung => bestellung.Status == Bestellstatus.Abgeschlossen
+                && bestellung.Abschlussdatum == datum);
+
+        foreach (var bestellung in abgeschlosseneBestellungen)
+        {
+            var produkte = bestellung.Positionen
+                .GroupBy(position => position.Produkt.Beschreibung(), StringComparer.Ordinal)
+                .Select(gruppe => new
+                {
+                    Beschreibung = gruppe.Key,
+                    Warenwert = gruppe.Sum(position => position.Positionspreis)
+                })
+                .OrderBy(produkt => produkt.Beschreibung, StringComparer.Ordinal)
+                .ToList();
+
+            var warenwert = produkte.Sum(produkt => produkt.Warenwert);
+            if (warenwert == 0m)
+            {
+                continue;
+            }
+
+            var gesamtpreis = bestellung.GesamtpreisBerechnen();
+            var anteile = produkte.ToDictionary(
+                produkt => produkt.Beschreibung,
+                produkt => decimal.Round(
+                    gesamtpreis * produkt.Warenwert / warenwert,
+                    2,
+                    MidpointRounding.AwayFromZero),
+                StringComparer.Ordinal);
+
+            var rundungsrest = gesamtpreis - anteile.Values.Sum();
+            if (rundungsrest != 0m)
+            {
+                var empfaenger = produkte
+                    .OrderByDescending(produkt => produkt.Warenwert)
+                    .ThenBy(produkt => produkt.Beschreibung, StringComparer.Ordinal)
+                    .First();
+                anteile[empfaenger.Beschreibung] += rundungsrest;
+            }
+
+            foreach (var anteil in anteile)
+            {
+                produktumsatz[anteil.Key] = produktumsatz.GetValueOrDefault(anteil.Key) + anteil.Value;
+            }
+        }
+
+        return produktumsatz;
+    }
 }

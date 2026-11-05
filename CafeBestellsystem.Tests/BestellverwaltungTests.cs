@@ -68,4 +68,45 @@ public class BestellverwaltungTests
 
         Assert.Equal(5m, verwaltung.TagesumsatzBerechnen(heute));
     }
+
+    [Fact]
+    public void ProduktumsatzBerechnen_GruppiertProdukteUndVerteiltRabattCentgenau()
+    {
+        var verwaltung = new Bestellverwaltung();
+        var heute = new DateOnly(2026, 10, 31);
+        var gestern = heute.AddDays(-1);
+        var rabattBestellung = verwaltung.BestellungErstellen();
+        rabattBestellung.PositionHinzufuegen(new Speise("Alpha", 6.67m, true), 1);
+        rabattBestellung.PositionHinzufuegen(new Speise("Beta", 6.67m, true), 1);
+        rabattBestellung.PositionHinzufuegen(new Speise("Gamma", 6.67m, true), 1);
+        rabattBestellung.Abschliessen(heute);
+        var weitereBestellung = verwaltung.BestellungErstellen();
+        weitereBestellung.PositionHinzufuegen(new Speise("Alpha", 3m, true), 1);
+        weitereBestellung.Abschliessen(heute);
+        var andereTagesbestellung = verwaltung.BestellungErstellen();
+        andereTagesbestellung.PositionHinzufuegen(new Speise("Gestern", 50m, true), 1);
+        andereTagesbestellung.Abschliessen(gestern);
+        var offen = verwaltung.BestellungErstellen();
+        offen.PositionHinzufuegen(new Speise("Offen", 40m, true), 1);
+        var storniert = verwaltung.BestellungErstellen();
+        storniert.PositionHinzufuegen(new Speise("Storniert", 30m, true), 1);
+        storniert.Stornieren();
+
+        var produktumsatz = verwaltung.ProduktumsatzBerechnen(heute);
+
+        Assert.Equal(3, produktumsatz.Count);
+        Assert.Equal(9.01m, produktumsatz[new Speise("Alpha", 1m, true).Beschreibung()]);
+        Assert.Equal(6m, produktumsatz[new Speise("Beta", 1m, true).Beschreibung()]);
+        Assert.Equal(6m, produktumsatz[new Speise("Gamma", 1m, true).Beschreibung()]);
+        Assert.Equal(verwaltung.TagesumsatzBerechnen(heute), produktumsatz.Values.Sum());
+        Assert.Equal(21.01m, produktumsatz.Values.Sum());
+    }
+
+    [Fact]
+    public void ProduktumsatzBerechnen_OhnePassendeAbschluesse_GibtLeeresErgebnis()
+    {
+        var verwaltung = new Bestellverwaltung();
+
+        Assert.Empty(verwaltung.ProduktumsatzBerechnen(new DateOnly(2026, 10, 31)));
+    }
 }

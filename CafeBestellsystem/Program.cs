@@ -2,6 +2,9 @@ using CafeBestellsystem.Core.Bestellungen;
 using CafeBestellsystem.Core.Produkte;
 using CafeBestellsystem.Konsole;
 
+Console.InputEncoding = System.Text.Encoding.UTF8;
+Console.OutputEncoding = System.Text.Encoding.UTF8;
+
 var produkte = new List<Produkt>
 {
     new Kaffee("Filterkaffee", 3.50m, true, 250, "Arabica"),

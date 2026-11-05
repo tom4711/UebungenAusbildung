@@ -1,6 +1,7 @@
 using System.Globalization;
 using CafeBestellsystem.Core.Bestellungen;
 using CafeBestellsystem.Core.Produkte;
+using Spectre.Console;
 
 namespace CafeBestellsystem.Konsole;
 
@@ -8,15 +9,17 @@ public class CafeKonsolenMenue
 {
     private static readonly CultureInfo DeutscheKultur = CultureInfo.GetCultureInfo("de-DE");
     private readonly TextReader _eingabe;
-    private readonly TextWriter _ausgabe;
     private readonly Bestellverwaltung _verwaltung;
     private readonly IReadOnlyList<Produkt> _produkte;
+    private readonly IAnsiConsole _konsole;
+    private readonly bool _interaktiveKonsole;
 
     public CafeKonsolenMenue(
         TextReader input,
         TextWriter output,
         Bestellverwaltung verwaltung,
-        IReadOnlyList<Produkt> produkte)
+        IReadOnlyList<Produkt> produkte,
+        bool? interaktiv = null)
     {
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(output);
@@ -24,9 +27,15 @@ public class CafeKonsolenMenue
         ArgumentNullException.ThrowIfNull(produkte);
 
         _eingabe = input;
-        _ausgabe = output;
         _verwaltung = verwaltung;
         _produkte = produkte;
+        _interaktiveKonsole = interaktiv ?? (ReferenceEquals(output, Console.Out) && !Console.IsOutputRedirected);
+        _konsole = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Out = new AnsiConsoleOutput(output),
+            Ansi = _interaktiveKonsole ? AnsiSupport.Yes : AnsiSupport.No,
+            ColorSystem = _interaktiveKonsole ? ColorSystemSupport.Standard : ColorSystemSupport.NoColors
+        });
     }
 
     public void Starten()
@@ -34,6 +43,11 @@ public class CafeKonsolenMenue
         var beenden = false;
         while (!beenden)
         {
+            if (_interaktiveKonsole)
+            {
+                _konsole.Clear();
+            }
+
             MenueAnzeigen();
             var eingabe = _eingabe.ReadLine();
             if (eingabe is null)
@@ -42,9 +56,10 @@ public class CafeKonsolenMenue
                 continue;
             }
 
-            if (!int.TryParse(eingabe, out var auswahl) || auswahl < 0 || auswahl > 6)
+            if (!int.TryParse(eingabe, out var auswahl) || auswahl < 0 || auswahl > 7)
             {
-                _ausgabe.WriteLine("Ungültige Auswahl. Bitte wählen Sie eine Zahl von 0 bis 6.");
+                FehlerAnzeigen("Ungültige Auswahl. Bitte wählen Sie eine Zahl von 0 bis 7.");
+                AufraeumenAbwarten();
                 continue;
             }
 
@@ -68,75 +83,110 @@ public class CafeKonsolenMenue
                 case 6:
                     TagesumsatzAnzeigen();
                     break;
+                case 7:
+                    OffeneBestellungenAnzeigen();
+                    break;
                 case 0:
                     beenden = true;
                     break;
             }
+
+            if (!beenden)
+            {
+                AufraeumenAbwarten();
+            }
         }
 
-        _ausgabe.WriteLine("Auf Wiedersehen!");
+        _konsole.MarkupLine("[green]Auf Wiedersehen![/]");
     }
 
     private void MenueAnzeigen()
     {
-        _ausgabe.WriteLine();
-        _ausgabe.WriteLine("Café-Bestellsystem");
-        _ausgabe.WriteLine("1. Produkte anzeigen");
-        _ausgabe.WriteLine("2. Bestellung starten");
-        _ausgabe.WriteLine("3. Produkt zu Bestellung hinzufügen");
-        _ausgabe.WriteLine("4. Gesamtpreis anzeigen");
-        _ausgabe.WriteLine("5. Bestellung abschließen");
-        _ausgabe.WriteLine("6. Tagesumsatz anzeigen");
-        _ausgabe.WriteLine("0. Beenden");
-        _ausgabe.Write("Auswahl: ");
+        _konsole.MarkupLine("[bold cyan]Café-Bestellsystem[/]");
+        var tabelle = new Table().Border(TableBorder.Rounded).BorderColor(Color.Grey)
+            .AddColumn(new TableColumn("[bold]Nr.[/]"))
+            .AddColumn(new TableColumn("[bold]Aktion[/]"));
+        tabelle.AddRow("[yellow]1[/]", "Produkte anzeigen");
+        tabelle.AddRow("[yellow]2[/]", "Bestellung starten");
+        tabelle.AddRow("[yellow]3[/]", "Produkt hinzufügen");
+        tabelle.AddRow("[yellow]4[/]", "Gesamtpreis anzeigen");
+        tabelle.AddRow("[yellow]5[/]", "Bestellung abschließen");
+        tabelle.AddRow("[yellow]6[/]", "Tagesumsatz anzeigen");
+        tabelle.AddRow("[yellow]7[/]", "Offene Bestellungen anzeigen");
+        tabelle.AddRow("[yellow]0[/]", "Beenden");
+        _konsole.Write(tabelle);
+        _konsole.Markup("[bold blue]Auswahl: [/]");
     }
 
     private void ProdukteAnzeigen()
     {
-        _ausgabe.WriteLine("Produkte:");
+        var tabelle = new Table().Border(TableBorder.Rounded).BorderColor(Color.Grey)
+            .AddColumn(new TableColumn("[bold]Nr.[/]"))
+            .AddColumn(new TableColumn("[bold]Produkt[/]"))
+            .AddColumn(new TableColumn("[bold]Preis[/]"));
         for (var index = 0; index < _produkte.Count; index++)
         {
             var produkt = _produkte[index];
-            _ausgabe.WriteLine($"{index + 1}. {produkt.Beschreibung()} - {PreisFormatieren(produkt.Preis)}");
+            tabelle.AddRow((index + 1).ToString(), Markup.Escape(produkt.Beschreibung()), PreisFormatieren(produkt.Preis));
         }
+
+        _konsole.Write(tabelle);
     }
 
     private void BestellungStarten()
     {
         var bestellung = _verwaltung.BestellungErstellen();
-        _ausgabe.WriteLine($"Bestellung {bestellung.Nummer} wurde gestartet.");
+        ErfolgAnzeigen($"Bestellung {bestellung.Nummer} wurde gestartet.");
     }
 
     private void ProduktHinzufuegen()
     {
-        var bestellung = BestellungAbfragen();
-        if (bestellung is null)
+        var offeneBestellungen = _verwaltung.OffeneBestellungenAnzeigen();
+        if (offeneBestellungen.Count == 0)
         {
+            FehlerAnzeigen("Keine offenen Bestellungen vorhanden.");
             return;
         }
 
+        _konsole.MarkupLine("[bold cyan]Offene Bestellungen zur Auswahl[/]");
+        OffeneBestellungenTabelleAnzeigen(offeneBestellungen);
+        var nummer = ZahlAbfragen("Bestellnummer aus der Übersicht: ");
+        if (nummer is null)
+        {
+            FehlerAnzeigen("Ungültige Bestellnummer.");
+            return;
+        }
+
+        var bestellung = offeneBestellungen.FirstOrDefault(offene => offene.Nummer == nummer.Value);
+        if (bestellung is null)
+        {
+            FehlerAnzeigen("Diese Nummer gehört zu keiner offenen Bestellung.");
+            return;
+        }
+
+        BestellungsinhaltAnzeigen(bestellung);
         ProdukteAnzeigen();
         var produktNummer = ZahlAbfragen("Produktnummer: ");
         if (produktNummer is null || produktNummer < 1 || produktNummer > _produkte.Count)
         {
-            _ausgabe.WriteLine("Ungültige Produktnummer.");
+            FehlerAnzeigen("Ungültige Produktnummer.");
             return;
         }
 
         var menge = ZahlAbfragen("Menge: ");
         if (menge is null || menge <= 0)
         {
-            _ausgabe.WriteLine("Die Menge muss eine positive Zahl sein.");
+            FehlerAnzeigen("Die Menge muss eine positive Zahl sein.");
             return;
         }
 
         if (!bestellung.PositionHinzufuegen(_produkte[produktNummer.Value - 1], menge.Value))
         {
-            _ausgabe.WriteLine("Die Bestellung ist nicht mehr offen.");
+            FehlerAnzeigen("Die Bestellung ist nicht mehr offen.");
             return;
         }
 
-        _ausgabe.WriteLine("Produkt wurde hinzugefügt.");
+        ErfolgAnzeigen("Produkt wurde hinzugefügt.");
     }
 
     private void GesamtpreisAnzeigen()
@@ -147,7 +197,7 @@ public class CafeKonsolenMenue
             return;
         }
 
-        _ausgabe.WriteLine($"Gesamtpreis: {PreisFormatieren(bestellung.GesamtpreisBerechnen())}");
+        _konsole.MarkupLine($"[bold]Gesamtpreis:[/] [green]{PreisFormatieren(bestellung.GesamtpreisBerechnen())}[/]");
     }
 
     private void BestellungAbschliessen()
@@ -161,18 +211,127 @@ public class CafeKonsolenMenue
         var heute = DateOnly.FromDateTime(DateTime.Today);
         if (bestellung.Abschliessen(heute))
         {
-            _ausgabe.WriteLine($"Bestellung {bestellung.Nummer} wurde abgeschlossen.");
+            ErfolgAnzeigen($"Bestellung {bestellung.Nummer} wurde abgeschlossen.");
         }
         else
         {
-            _ausgabe.WriteLine("Die Bestellung ist nicht mehr offen.");
+            FehlerAnzeigen("Die Bestellung ist nicht mehr offen.");
         }
     }
 
     private void TagesumsatzAnzeigen()
     {
         var heute = DateOnly.FromDateTime(DateTime.Today);
-        _ausgabe.WriteLine($"Tagesumsatz: {PreisFormatieren(_verwaltung.TagesumsatzBerechnen(heute))}");
+        var tagesumsatz = _verwaltung.TagesumsatzBerechnen(heute);
+        var produktumsatz = _verwaltung.ProduktumsatzBerechnen(heute);
+
+        _konsole.MarkupLine($"[bold]Tagesumsatz:[/] [green]{PreisFormatieren(tagesumsatz)}[/]");
+        if (tagesumsatz == 0m || produktumsatz.Count == 0)
+        {
+            _konsole.MarkupLine("[grey]Keine Produktumsätze für heute vorhanden.[/]");
+            return;
+        }
+
+        _konsole.MarkupLine("[bold cyan]Umsatz nach Produkt[/]");
+        var sortierteProduktumsaetze = produktumsatz
+            .OrderByDescending(produkt => produkt.Value)
+            .ThenBy(produkt => produkt.Key, StringComparer.Ordinal)
+            .ToList();
+        var tabelle = new Table().Border(TableBorder.Rounded).BorderColor(Color.Grey)
+            .AddColumn(new TableColumn("[bold]Produkt[/]"))
+            .AddColumn(new TableColumn("[bold]Umsatz[/]"))
+            .AddColumn(new TableColumn("[bold]Anteil[/]"));
+        var farben = new[]
+        {
+            Color.Blue,
+            Color.Green,
+            Color.Yellow,
+            Color.Purple,
+            Color.Orange1,
+            Color.Cyan1,
+            Color.Red,
+            Color.Grey
+        };
+        var diagramm = new BreakdownChart().ShowPercentage();
+
+        for (var index = 0; index < sortierteProduktumsaetze.Count; index++)
+        {
+            var produkt = sortierteProduktumsaetze[index];
+            var anteil = produkt.Value / tagesumsatz;
+            tabelle.AddRow(
+                Markup.Escape(produkt.Key),
+                PreisFormatieren(produkt.Value),
+                anteil.ToString("P1", DeutscheKultur));
+            diagramm.AddItem(
+                Markup.Escape(produkt.Key),
+                (double)(anteil * 100m),
+                farben[index % farben.Length]);
+        }
+
+        _konsole.Write(tabelle);
+        _konsole.Write(diagramm);
+    }
+
+    private void OffeneBestellungenAnzeigen()
+    {
+        var offeneBestellungen = _verwaltung.OffeneBestellungenAnzeigen();
+        if (offeneBestellungen.Count == 0)
+        {
+            _konsole.MarkupLine("[grey]Keine offenen Bestellungen vorhanden.[/]");
+            return;
+        }
+
+        _konsole.MarkupLine("[bold cyan]Offene Bestellungen[/]");
+        OffeneBestellungenTabelleAnzeigen(offeneBestellungen);
+    }
+
+    private void OffeneBestellungenTabelleAnzeigen(IReadOnlyList<Bestellung> bestellungen)
+    {
+        var tabelle = new Table().Border(TableBorder.Rounded).BorderColor(Color.Grey)
+            .AddColumn(new TableColumn("[bold]Bestellnr.[/]"))
+            .AddColumn(new TableColumn("[bold]Enthaltene Produkte[/]"))
+            .AddColumn(new TableColumn("[bold]Gesamtpreis[/]"));
+
+        foreach (var bestellung in bestellungen)
+        {
+            var inhalt = bestellung.Positionen.Count == 0
+                ? "Noch keine Produkte"
+                : string.Join(", ", bestellung.Positionen.Select(position =>
+                    $"{position.Menge} × {position.Produkt.Beschreibung()}"));
+            tabelle.AddRow(
+                bestellung.Nummer.ToString(),
+                Markup.Escape(inhalt),
+                PreisFormatieren(bestellung.GesamtpreisBerechnen()));
+        }
+
+        _konsole.Write(tabelle);
+    }
+
+    private void BestellungsinhaltAnzeigen(Bestellung bestellung)
+    {
+        _konsole.MarkupLine($"[bold cyan]Aktueller Inhalt von Bestellung {bestellung.Nummer}[/]");
+        if (bestellung.Positionen.Count == 0)
+        {
+            _konsole.MarkupLine("[grey]Noch keine Produkte in dieser Bestellung.[/]");
+        }
+        else
+        {
+            var tabelle = new Table().Border(TableBorder.Rounded).BorderColor(Color.Grey)
+                .AddColumn(new TableColumn("[bold]Menge[/]"))
+                .AddColumn(new TableColumn("[bold]Produkt[/]"))
+                .AddColumn(new TableColumn("[bold]Positionspreis[/]"));
+            foreach (var position in bestellung.Positionen)
+            {
+                tabelle.AddRow(
+                    position.Menge.ToString(),
+                    Markup.Escape(position.Produkt.Beschreibung()),
+                    PreisFormatieren(position.Positionspreis));
+            }
+
+            _konsole.Write(tabelle);
+        }
+
+        _konsole.MarkupLine($"[bold]Aktueller Gesamtpreis:[/] [green]{PreisFormatieren(bestellung.GesamtpreisBerechnen())}[/]");
     }
 
     private Bestellung? BestellungAbfragen()
@@ -180,14 +339,14 @@ public class CafeKonsolenMenue
         var nummer = ZahlAbfragen("Bestellnummer: ");
         if (nummer is null)
         {
-            _ausgabe.WriteLine("Ungültige Bestellnummer.");
+            FehlerAnzeigen("Ungültige Bestellnummer.");
             return null;
         }
 
         var bestellung = _verwaltung.BestellungSuchen(nummer.Value);
         if (bestellung is null)
         {
-            _ausgabe.WriteLine("Bestellung nicht gefunden.");
+            FehlerAnzeigen("Bestellung nicht gefunden.");
         }
 
         return bestellung;
@@ -195,7 +354,7 @@ public class CafeKonsolenMenue
 
     private int? ZahlAbfragen(string aufforderung)
     {
-        _ausgabe.Write(aufforderung);
+        _konsole.Markup($"[blue]{Markup.Escape(aufforderung)}[/]");
         var eingabe = _eingabe.ReadLine();
         return int.TryParse(eingabe, out var zahl) ? zahl : null;
     }
@@ -203,5 +362,26 @@ public class CafeKonsolenMenue
     private static string PreisFormatieren(decimal preis)
     {
         return $"{preis.ToString("F2", DeutscheKultur)} €";
+    }
+
+    private void ErfolgAnzeigen(string text)
+    {
+        _konsole.MarkupLine($"[green]{Markup.Escape(text)}[/]");
+    }
+
+    private void FehlerAnzeigen(string text)
+    {
+        _konsole.MarkupLine($"[red]{Markup.Escape(text)}[/]");
+    }
+
+    private void AufraeumenAbwarten()
+    {
+        if (!_interaktiveKonsole)
+        {
+            return;
+        }
+
+        _konsole.MarkupLine("[grey]Weiter mit Enter ...[/]");
+        _eingabe.ReadLine();
     }
 }

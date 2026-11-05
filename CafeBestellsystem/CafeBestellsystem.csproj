@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../CafeBestellsystem.Core/CafeBestellsystem.Core.csproj" />
+    <PackageReference Include="Spectre.Console" Version="0.57.2" />
   </ItemGroup>
 </Project>
