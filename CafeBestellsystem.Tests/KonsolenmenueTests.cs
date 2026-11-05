@@ -1,6 +1,7 @@
 using CafeBestellsystem.Core.Bestellungen;
 using CafeBestellsystem.Core.Produkte;
 using CafeBestellsystem.Konsole;
+using Spectre.Console.Testing;
 using Xunit;
 
 namespace CafeBestellsystem.Tests;
@@ -148,13 +149,20 @@ public class KonsolenmenueTests
     [Fact]
     public void Starten_Produktseite_WartetVorDemNaechstenMenueAufEnter()
     {
-        var ausgabe = new StringWriter();
+        var console = new TestConsole();
+        console.Profile.Capabilities.Interactive = true;
+        console.Input.PushKey(ConsoleKey.Enter);
+        for (var index = 0; index < 7; index++)
+        {
+            console.Input.PushKey(ConsoleKey.DownArrow);
+        }
+        console.Input.PushKey(ConsoleKey.Enter);
         var verwaltung = new Bestellverwaltung();
-        var menue = NeuesMenueMitVerwaltung("1\n\n0\n", ausgabe, verwaltung, interaktiv: true);
+        var menue = NeuesMenueMitKonsole("\n", console, verwaltung);
 
         menue.Starten();
 
-        var text = ausgabe.ToString();
+        var text = console.Output;
         var produktIndex = text.IndexOf("Tee", StringComparison.Ordinal);
         var weiterIndex = text.IndexOf("Weiter mit Enter", StringComparison.Ordinal);
         var naechstesMenueIndex = text.IndexOf("Café-Bestellsystem", produktIndex + 1, StringComparison.Ordinal);
@@ -280,6 +288,53 @@ public class KonsolenmenueTests
         Assert.Contains("Auf Wiedersehen", ausgabe.ToString());
     }
 
+    [Fact]
+    public void Starten_Interaktiv_NutztBetitelteSpectreAuswahlFuerHauptmenue()
+    {
+        var console = new TestConsole();
+        console.Profile.Capabilities.Interactive = true;
+        for (var index = 0; index < 7; index++)
+        {
+            console.Input.PushKey(ConsoleKey.DownArrow);
+        }
+        console.Input.PushKey(ConsoleKey.Enter);
+        var menue = NeuesMenueMitKonsole("", console);
+
+        menue.Starten();
+
+        Assert.Contains("Was möchten Sie tun?", console.Output);
+        Assert.Contains("Auf Wiedersehen", console.Output);
+    }
+
+    [Fact]
+    public void ProduktHinzufuegen_Interaktiv_BietetZurueckOptionInSpectreAuswahl()
+    {
+        var console = new TestConsole();
+        console.Profile.Capabilities.Interactive = true;
+        console.Input.PushKey(ConsoleKey.DownArrow);
+        console.Input.PushKey(ConsoleKey.DownArrow);
+        console.Input.PushKey(ConsoleKey.Enter);
+        console.Input.PushKey(ConsoleKey.Enter);
+        console.Input.PushKey(ConsoleKey.DownArrow);
+        console.Input.PushKey(ConsoleKey.Enter);
+        for (var index = 0; index < 7; index++)
+        {
+            console.Input.PushKey(ConsoleKey.DownArrow);
+        }
+        console.Input.PushKey(ConsoleKey.Enter);
+        var verwaltung = new Bestellverwaltung();
+        var bestellung = verwaltung.BestellungErstellen();
+        var menue = NeuesMenueMitKonsole("", console, verwaltung);
+
+        menue.Starten();
+
+        Assert.Contains("Produkt auswählen", console.Output);
+        Assert.Contains("Welche Bestellung soll ergänzt werden?", console.Output);
+        Assert.Contains("Bestellung 1", console.Output);
+        Assert.Contains("Zurück zum Hauptmenü", console.Output);
+        Assert.Empty(bestellung.Positionen);
+    }
+
     private static CafeKonsolenMenue NeuesMenue(string eingabe, StringWriter ausgabe)
     {
         var verwaltung = new Bestellverwaltung();
@@ -301,5 +356,22 @@ public class KonsolenmenueTests
             new Getraenk("Tee", 3.50m, true, 250)
         };
         return new CafeKonsolenMenue(new StringReader(eingabe), ausgabe, verwaltung, produkte, interaktiv);
+    }
+
+    private static CafeKonsolenMenue NeuesMenueMitKonsole(
+        string eingabe,
+        TestConsole console,
+        Bestellverwaltung? verwaltung = null)
+    {
+        IReadOnlyList<Produkt> produkte = new List<Produkt>
+        {
+            new Getraenk("Tee", 3.50m, true, 250)
+        };
+        return new CafeKonsolenMenue(
+            new StringReader(eingabe),
+            TextWriter.Null,
+            verwaltung ?? new Bestellverwaltung(),
+            produkte,
+            ansiConsole: console);
     }
 }
