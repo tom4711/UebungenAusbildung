@@ -2,6 +2,7 @@ using System.Globalization;
 using CafeBestellsystem.Core.Bestellungen;
 using CafeBestellsystem.Core.Produkte;
 using Spectre.Console;
+using Spectre.Console.Rendering;
 
 namespace CafeBestellsystem.Konsole;
 
@@ -97,7 +98,9 @@ public class CafeKonsolenMenue
 
     private void MenueAnzeigen()
     {
-        _konsole.MarkupLine("[bold cyan]Café-Bestellsystem[/]");
+        PanelAnzeigen(
+            "Café-Bestellsystem",
+            new Markup("[grey]Bestellungen übersichtlich verwalten[/]"));
         if (_interaktiveKonsole)
         {
             return;
@@ -114,7 +117,7 @@ public class CafeKonsolenMenue
         tabelle.AddRow("[yellow]6[/]", "Tagesumsatz anzeigen");
         tabelle.AddRow("[yellow]7[/]", "Offene Bestellungen anzeigen");
         tabelle.AddRow("[yellow]0[/]", "Beenden");
-        _konsole.Write(tabelle);
+        PanelAnzeigen("Aktionen", tabelle);
         _konsole.Markup("[bold blue]Auswahl: [/]");
     }
 
@@ -130,7 +133,7 @@ public class CafeKonsolenMenue
             tabelle.AddRow((index + 1).ToString(), Markup.Escape(produkt.Beschreibung()), PreisFormatieren(produkt.Preis));
         }
 
-        _konsole.Write(tabelle);
+        PanelAnzeigen("Produktkatalog", tabelle);
     }
 
     private void BestellungStarten()
@@ -144,12 +147,11 @@ public class CafeKonsolenMenue
         var offeneBestellungen = _verwaltung.OffeneBestellungenAnzeigen();
         if (offeneBestellungen.Count == 0)
         {
-            FehlerAnzeigen("Keine offenen Bestellungen vorhanden.");
+            PanelAnzeigen("Keine offenen Bestellungen", new Markup("[grey]Es gibt aktuell keine offenen Bestellungen.[/]"));
             return;
         }
 
-        _konsole.MarkupLine("[bold cyan]Offene Bestellungen zur Auswahl[/]");
-        OffeneBestellungenTabelleAnzeigen(offeneBestellungen);
+        OffeneBestellungenTabelleAnzeigen(offeneBestellungen, "Offene Bestellungen zur Auswahl");
         var bestellung = OffeneBestellungAuswaehlen(offeneBestellungen, "Welche Bestellung soll ergänzt werden?");
         if (bestellung is null) return;
 
@@ -274,13 +276,11 @@ public class CafeKonsolenMenue
             bestellvorschau.PositionHinzufuegen(position.Produkt, position.Menge);
         }
 
-        var panel = new Panel(new Rows(
+        PanelAnzeigen(
+            $"Warenkorb · Bestellung {bestellung.Nummer}",
+            new Rows(
                 tabelle,
-                new Markup($"[bold]Neuer Bestellgesamtpreis:[/] [green]{PreisFormatieren(bestellvorschau.GesamtpreisBerechnen())}[/]")))
-            .Header($"[bold yellow]Warenkorb · Bestellung {bestellung.Nummer}[/]")
-            .Border(BoxBorder.Rounded)
-            .BorderColor(Color.Cyan1);
-        _konsole.Write(panel);
+                new Markup($"[bold]Neuer Bestellgesamtpreis:[/] [green]{PreisFormatieren(bestellvorschau.GesamtpreisBerechnen())}[/]")));
     }
 
     private bool BestellungBestaetigen()
@@ -323,7 +323,9 @@ public class CafeKonsolenMenue
             return;
         }
 
-        _konsole.MarkupLine($"[bold]Gesamtpreis:[/] [green]{PreisFormatieren(bestellung.GesamtpreisBerechnen())}[/]");
+        PanelAnzeigen(
+            $"Bestellung {bestellung.Nummer}",
+            new Markup($"[bold]Gesamtpreis[/]\n[bold green]{PreisFormatieren(bestellung.GesamtpreisBerechnen())}[/]"));
     }
 
     private void BestellungAbschliessen()
@@ -331,12 +333,11 @@ public class CafeKonsolenMenue
         var offeneBestellungen = _verwaltung.OffeneBestellungenAnzeigen();
         if (offeneBestellungen.Count == 0)
         {
-            FehlerAnzeigen("Keine offenen Bestellungen vorhanden.");
+            PanelAnzeigen("Keine offenen Bestellungen", new Markup("Es gibt aktuell keine Bestellungen zum Abschließen."));
             return;
         }
 
-        _konsole.MarkupLine("[bold cyan]Offene Bestellungen zum Abschließen[/]");
-        OffeneBestellungenTabelleAnzeigen(offeneBestellungen);
+        OffeneBestellungenTabelleAnzeigen(offeneBestellungen, "Offene Bestellungen zum Abschließen");
         var bestellung = OffeneBestellungAuswaehlen(offeneBestellungen, "Welche Bestellung soll abgeschlossen werden?");
         if (bestellung is null) return;
         BestellungsinhaltAnzeigen(bestellung);
@@ -357,14 +358,16 @@ public class CafeKonsolenMenue
         var tagesumsatz = _verwaltung.TagesumsatzBerechnen(heute);
         var produktumsatz = _verwaltung.ProduktumsatzBerechnen(heute);
 
-        _konsole.MarkupLine($"[bold]Tagesumsatz:[/] [green]{PreisFormatieren(tagesumsatz)}[/]");
         if (tagesumsatz == 0m || produktumsatz.Count == 0)
         {
-            _konsole.MarkupLine("[grey]Keine Produktumsätze für heute vorhanden.[/]");
+            PanelAnzeigen(
+                "Tagesumsatz",
+                new Rows(
+                    new Markup($"[bold]Gesamtumsatz[/]  [green]{PreisFormatieren(tagesumsatz)}[/]"),
+                    new Markup("[grey]Keine Produktumsätze für heute vorhanden.[/]")));
             return;
         }
 
-        _konsole.MarkupLine("[bold cyan]Umsatz nach Produkt[/]");
         var sortierteProduktumsaetze = produktumsatz
             .OrderByDescending(produkt => produkt.Value)
             .ThenBy(produkt => produkt.Key, StringComparer.Ordinal)
@@ -400,8 +403,13 @@ public class CafeKonsolenMenue
                 farben[index % farben.Length]);
         }
 
-        _konsole.Write(tabelle);
-        _konsole.Write(diagramm);
+        PanelAnzeigen(
+            "Tagesumsatz",
+            new Rows(
+                new Markup($"[bold]Gesamtumsatz[/]  [green]{PreisFormatieren(tagesumsatz)}[/]"),
+                new Markup("[bold cyan]Umsatz nach Produkt[/]"),
+                tabelle,
+                diagramm));
     }
 
     private void OffeneBestellungenAnzeigen()
@@ -409,15 +417,16 @@ public class CafeKonsolenMenue
         var offeneBestellungen = _verwaltung.OffeneBestellungenAnzeigen();
         if (offeneBestellungen.Count == 0)
         {
-            _konsole.MarkupLine("[grey]Keine offenen Bestellungen vorhanden.[/]");
+            PanelAnzeigen("Offene Bestellungen", new Markup("[grey]Keine offenen Bestellungen vorhanden.[/]"));
             return;
         }
 
-        _konsole.MarkupLine("[bold cyan]Offene Bestellungen[/]");
         OffeneBestellungenTabelleAnzeigen(offeneBestellungen);
     }
 
-    private void OffeneBestellungenTabelleAnzeigen(IReadOnlyList<Bestellung> bestellungen)
+    private void OffeneBestellungenTabelleAnzeigen(
+        IReadOnlyList<Bestellung> bestellungen,
+        string titel = "Offene Bestellungen")
     {
         var tabelle = new Table().Border(TableBorder.Rounded).BorderColor(Color.Grey)
             .AddColumn(new TableColumn("[bold]Bestellnr.[/]"))
@@ -436,15 +445,15 @@ public class CafeKonsolenMenue
                 PreisFormatieren(bestellung.GesamtpreisBerechnen()));
         }
 
-        _konsole.Write(tabelle);
+        PanelAnzeigen(titel, tabelle);
     }
 
     private void BestellungsinhaltAnzeigen(Bestellung bestellung)
     {
-        _konsole.MarkupLine($"[bold cyan]Aktueller Inhalt von Bestellung {bestellung.Nummer}[/]");
+        IRenderable inhalt;
         if (bestellung.Positionen.Count == 0)
         {
-            _konsole.MarkupLine("[grey]Noch keine Produkte in dieser Bestellung.[/]");
+            inhalt = new Markup("[grey]Noch keine Produkte in dieser Bestellung.[/]");
         }
         else
         {
@@ -460,10 +469,14 @@ public class CafeKonsolenMenue
                     PreisFormatieren(position.Positionspreis));
             }
 
-            _konsole.Write(tabelle);
+            inhalt = tabelle;
         }
 
-        _konsole.MarkupLine($"[bold]Aktueller Gesamtpreis:[/] [green]{PreisFormatieren(bestellung.GesamtpreisBerechnen())}[/]");
+        PanelAnzeigen(
+            $"Aktueller Inhalt von Bestellung {bestellung.Nummer}",
+            new Rows(
+                inhalt,
+                new Markup($"[bold]Aktueller Gesamtpreis:[/] [green]{PreisFormatieren(bestellung.GesamtpreisBerechnen())}[/]")));
     }
 
     private Bestellung? BestellungAbfragen()
@@ -623,9 +636,19 @@ public class CafeKonsolenMenue
         return $"{preis.ToString("F2", DeutscheKultur)} €";
     }
 
+    private void PanelAnzeigen(string titel, IRenderable inhalt)
+    {
+        _konsole.Write(
+            new Panel(inhalt)
+                .Header($"[bold yellow]{Markup.Escape(titel)}[/]")
+                .Border(BoxBorder.Rounded)
+                .BorderColor(Color.Cyan1)
+                .Padding(1, 0));
+    }
+
     private void ErfolgAnzeigen(string text)
     {
-        _konsole.MarkupLine($"[green]{Markup.Escape(text)}[/]");
+        PanelAnzeigen("Erfolgreich", new Markup($"[bold green]{Markup.Escape(text)}[/]"));
     }
 
     private void FehlerAnzeigen(string text)
