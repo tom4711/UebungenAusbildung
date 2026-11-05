@@ -47,7 +47,7 @@ public class KonsolenmenueTests
     public void Starten_UngueltigeBestellnummern_GibtMeldungUndKannMitGueltigerNummerFortfahren()
     {
         var ausgabe = new StringWriter();
-        var menue = NeuesMenue("4\n\n4\n2147483648\n2\n4\n1\n0\n", ausgabe);
+        var menue = NeuesMenue("2\n4\n\n2147483648\n1\n0\n", ausgabe);
 
         menue.Starten();
 
@@ -56,16 +56,12 @@ public class KonsolenmenueTests
     }
 
     [Fact]
-    public void Starten_UngueltigeProduktnummernUndMengen_FuegenKeinePositionHinzu()
+    public void Starten_UngueltigeProduktnummernUndMengen_WiederholenDieJeweiligeEingabe()
     {
         var ausgabe = new StringWriter();
         var menue = NeuesMenue(
             "2\n"
-            + "3\n1\n\n"
-            + "3\n1\n2147483648\n"
-            + "3\n1\n1\n0\n"
-            + "3\n1\n1\n2147483648\n"
-            + "3\n1\n1\n2\n"
+            + "3\n1\n\n2\n1\n-1\n2147483648\n2\n"
             + "4\n1\n0\n",
             ausgabe);
 
@@ -74,6 +70,38 @@ public class KonsolenmenueTests
         Assert.Equal(2, ausgabe.ToString().Split("Ungültige Produktnummer").Length - 1);
         Assert.Equal(2, ausgabe.ToString().Split("Die Menge muss eine positive Zahl sein").Length - 1);
         Assert.Contains("Gesamtpreis: 7,00 €", ausgabe.ToString());
+    }
+
+    [Fact]
+    public void Starten_BestellungAbschliessen_ZeigtOffeneBestellungUndWiederholtUngueltigeNummer()
+    {
+        var ausgabe = new StringWriter();
+        var verwaltung = new Bestellverwaltung();
+        var bestellung = verwaltung.BestellungErstellen();
+        bestellung.PositionHinzufuegen(new Getraenk("Tee", 3.50m, true, 250), 1);
+        var menue = NeuesMenueMitVerwaltung("5\n999\n1\n0\n", ausgabe, verwaltung);
+
+        menue.Starten();
+
+        var text = ausgabe.ToString();
+        Assert.Contains("Offene Bestellungen zum Abschließen", text);
+        Assert.Contains("Tee", text);
+        Assert.Contains("Diese Nummer gehört zu keiner offenen Bestellung", text);
+        Assert.Contains("wurde abgeschlossen", text);
+        Assert.Equal(Bestellstatus.Abgeschlossen, bestellung.Status);
+    }
+
+    [Fact]
+    public void Starten_BestellungAbschliessen_OhneOffeneBestellungFragtKeineNummerAb()
+    {
+        var ausgabe = new StringWriter();
+        var verwaltung = new Bestellverwaltung();
+        var menue = NeuesMenueMitVerwaltung("5\n0\n", ausgabe, verwaltung);
+
+        menue.Starten();
+
+        Assert.Contains("Keine offenen Bestellungen", ausgabe.ToString());
+        Assert.DoesNotContain("Bestellnummer aus der Übersicht:", ausgabe.ToString());
     }
 
     [Fact]
@@ -171,8 +199,8 @@ public class KonsolenmenueTests
         menue.Starten();
 
         var text = ausgabe.ToString();
-        var inhaltIndex = text.IndexOf("Tee", StringComparison.Ordinal);
-        var produktabfrageIndex = text.IndexOf("Produktnummer:", StringComparison.Ordinal);
+        var inhaltIndex = text.IndexOf("Aktueller Inhalt von Bestellung", StringComparison.Ordinal);
+        var produktabfrageIndex = text.IndexOf("Produktnummer", StringComparison.Ordinal);
         Assert.True(inhaltIndex >= 0);
         Assert.True(produktabfrageIndex > inhaltIndex);
         Assert.Equal(2, bestellung.AnzahlPositionen());

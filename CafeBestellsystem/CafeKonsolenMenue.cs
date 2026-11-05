@@ -49,21 +49,14 @@ public class CafeKonsolenMenue
             }
 
             MenueAnzeigen();
-            var eingabe = _eingabe.ReadLine();
-            if (eingabe is null)
+            var auswahl = MenueAuswahlAbfragen();
+            if (auswahl is null)
             {
                 beenden = true;
                 continue;
             }
 
-            if (!int.TryParse(eingabe, out var auswahl) || auswahl < 0 || auswahl > 7)
-            {
-                FehlerAnzeigen("Ungültige Auswahl. Bitte wählen Sie eine Zahl von 0 bis 7.");
-                AufraeumenAbwarten();
-                continue;
-            }
-
-            switch (auswahl)
+            switch (auswahl.Value)
             {
                 case 1:
                     ProdukteAnzeigen();
@@ -150,33 +143,35 @@ public class CafeKonsolenMenue
 
         _konsole.MarkupLine("[bold cyan]Offene Bestellungen zur Auswahl[/]");
         OffeneBestellungenTabelleAnzeigen(offeneBestellungen);
-        var nummer = ZahlAbfragen("Bestellnummer aus der Übersicht: ");
+        var nummer = ZahlAbfragen(
+            "Bestellnummer aus der Übersicht (0 = Abbrechen): ",
+            zahl => offeneBestellungen.Any(bestellung => bestellung.Nummer == zahl),
+            "Diese Nummer gehört zu keiner offenen Bestellung.");
         if (nummer is null)
         {
-            FehlerAnzeigen("Ungültige Bestellnummer.");
             return;
         }
 
         var bestellung = offeneBestellungen.FirstOrDefault(offene => offene.Nummer == nummer.Value);
-        if (bestellung is null)
-        {
-            FehlerAnzeigen("Diese Nummer gehört zu keiner offenen Bestellung.");
-            return;
-        }
+        ArgumentNullException.ThrowIfNull(bestellung);
 
         BestellungsinhaltAnzeigen(bestellung);
         ProdukteAnzeigen();
-        var produktNummer = ZahlAbfragen("Produktnummer: ");
-        if (produktNummer is null || produktNummer < 1 || produktNummer > _produkte.Count)
+        var produktNummer = ZahlAbfragen(
+            "Produktnummer (0 = Abbrechen): ",
+            zahl => zahl >= 1 && zahl <= _produkte.Count,
+            "Ungültige Produktnummer.");
+        if (produktNummer is null)
         {
-            FehlerAnzeigen("Ungültige Produktnummer.");
             return;
         }
 
-        var menge = ZahlAbfragen("Menge: ");
-        if (menge is null || menge <= 0)
+        var menge = ZahlAbfragen(
+            "Menge (0 = Abbrechen): ",
+            zahl => zahl > 0,
+            "Die Menge muss eine positive Zahl sein.");
+        if (menge is null)
         {
-            FehlerAnzeigen("Die Menge muss eine positive Zahl sein.");
             return;
         }
 
@@ -202,12 +197,26 @@ public class CafeKonsolenMenue
 
     private void BestellungAbschliessen()
     {
-        var bestellung = BestellungAbfragen();
-        if (bestellung is null)
+        var offeneBestellungen = _verwaltung.OffeneBestellungenAnzeigen();
+        if (offeneBestellungen.Count == 0)
+        {
+            FehlerAnzeigen("Keine offenen Bestellungen vorhanden.");
+            return;
+        }
+
+        _konsole.MarkupLine("[bold cyan]Offene Bestellungen zum Abschließen[/]");
+        OffeneBestellungenTabelleAnzeigen(offeneBestellungen);
+        var nummer = ZahlAbfragen(
+            "Bestellnummer aus der Übersicht (0 = Abbrechen): ",
+            zahl => offeneBestellungen.Any(bestellung => bestellung.Nummer == zahl),
+            "Diese Nummer gehört zu keiner offenen Bestellung.");
+        if (nummer is null)
         {
             return;
         }
 
+        var bestellung = offeneBestellungen.First(offene => offene.Nummer == nummer.Value);
+        BestellungsinhaltAnzeigen(bestellung);
         var heute = DateOnly.FromDateTime(DateTime.Today);
         if (bestellung.Abschliessen(heute))
         {
@@ -336,27 +345,67 @@ public class CafeKonsolenMenue
 
     private Bestellung? BestellungAbfragen()
     {
-        var nummer = ZahlAbfragen("Bestellnummer: ");
-        if (nummer is null)
+        while (true)
         {
-            FehlerAnzeigen("Ungültige Bestellnummer.");
-            return null;
-        }
+            var nummer = ZahlAbfragen("Bestellnummer (0 = Abbrechen): ", zahl => zahl > 0, "Ungültige Bestellnummer.");
+            if (nummer is null)
+            {
+                return null;
+            }
 
-        var bestellung = _verwaltung.BestellungSuchen(nummer.Value);
-        if (bestellung is null)
-        {
+            var bestellung = _verwaltung.BestellungSuchen(nummer.Value);
+            if (bestellung is not null)
+            {
+                return bestellung;
+            }
+
             FehlerAnzeigen("Bestellung nicht gefunden.");
         }
-
-        return bestellung;
     }
 
-    private int? ZahlAbfragen(string aufforderung)
+    private int? MenueAuswahlAbfragen()
     {
-        _konsole.Markup($"[blue]{Markup.Escape(aufforderung)}[/]");
-        var eingabe = _eingabe.ReadLine();
-        return int.TryParse(eingabe, out var zahl) ? zahl : null;
+        while (true)
+        {
+            _konsole.Markup("[bold blue]Auswahl: [/]");
+            var eingabe = _eingabe.ReadLine();
+            if (eingabe is null)
+            {
+                return null;
+            }
+
+            if (int.TryParse(eingabe, out var auswahl) && auswahl >= 0 && auswahl <= 7)
+            {
+                return auswahl;
+            }
+
+            FehlerAnzeigen("Ungültige Auswahl. Bitte wählen Sie eine Zahl von 0 bis 7.");
+        }
+    }
+
+    private int? ZahlAbfragen(string aufforderung, Func<int, bool> istGueltig, string fehlermeldung)
+    {
+        while (true)
+        {
+            _konsole.Markup($"[blue]{Markup.Escape(aufforderung)}[/]");
+            var eingabe = _eingabe.ReadLine();
+            if (eingabe is null)
+            {
+                return null;
+            }
+
+            if (int.TryParse(eingabe, out var zahl) && zahl == 0)
+            {
+                return null;
+            }
+
+            if (int.TryParse(eingabe, out zahl) && istGueltig(zahl))
+            {
+                return zahl;
+            }
+
+            FehlerAnzeigen(fehlermeldung);
+        }
     }
 
     private static string PreisFormatieren(decimal preis)
